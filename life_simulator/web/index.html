@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>熬过去 - 人生模拟器 🌟</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- 背景动画 -->
+        <div class="bg-animation">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+
+        <!-- 欢迎界面 -->
+        <div id="welcome-screen" class="screen active">
+            <div class="welcome-content">
+                <h1 class="title">
+                    <span class="title-text">熬过去</span>
+                    <span class="subtitle">人生模拟器</span>
+                </h1>
+                <p class="tagline">一款<strong>很难死</strong>的人生模拟器<br>每次绝境，大概率会迎来转机 🌟</p>
+                <button class="btn btn-primary btn-large" onclick="showCreateCharacter()">
+                    开始新人生
+                </button>
+                <button class="btn btn-secondary btn-large" onclick="loadSavegame()" id="continue-btn" style="display: none;">
+                    继续游戏
+                </button>
+            </div>
+        </div>
+
+        <!-- 创建角色界面 -->
+        <div id="create-screen" class="screen">
+            <div class="create-container">
+                <h2>创建角色</h2>
+                <div class="form-group">
+                    <label>名字</label>
+                    <input type="text" id="player-name" placeholder="输入你的名字" maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label>选择出身</label>
+                    <div class="card-grid" id="background-select">
+                        <div class="option-card" data-value="1" onclick="selectOption(this, 'background')">
+                            <div class="option-icon">🏘️</div>
+                            <div class="option-name">小镇青年</div>
+                            <div class="option-stats">💰5K | 😊70 | 💼20</div>
+                        </div>
+                        <div class="option-card" data-value="2" onclick="selectOption(this, 'background')">
+                            <div class="option-icon">🏙️</div>
+                            <div class="option-name">城市中产</div>
+                            <div class="option-stats">💰50K | 😊60 | 💼50</div>
+                        </div>
+                        <div class="option-card" data-value="3" onclick="selectOption(this, 'background')">
+                            <div class="option-icon">💎</div>
+                            <div class="option-name">富二代</div>
+                            <div class="option-stats">💰200K | 😊80 | 💼30</div>
+                        </div>
+                        <div class="option-card" data-value="4" onclick="selectOption(this, 'background')">
+                            <div class="option-icon">🌾</div>
+                            <div class="option-name">农村出身</div>
+                            <div class="option-stats">💰2K | 😊60 | 💼10</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>选择天赋</label>
+                    <div class="card-grid" id="talent-select">
+                        <div class="option-card" data-value="1" onclick="selectOption(this, 'talent')">
+                            <div class="option-icon">📚</div>
+                            <div class="option-name">学习天赋</div>
+                            <div class="option-desc">考试成功率+30%</div>
+                        </div>
+                        <div class="option-card" data-value="2" onclick="selectOption(this, 'talent')">
+                            <div class="option-icon">🤝</div>
+                            <div class="option-name">社交达人</div>
+                            <div class="option-desc">人际关系+20%</div>
+                        </div>
+                        <div class="option-card" data-value="3" onclick="selectOption(this, 'talent')">
+                            <div class="option-icon">💰</div>
+                            <div class="option-name">财运亨通</div>
+                            <div class="option-desc">金钱收益+30%</div>
+                        </div>
+                        <div class="option-card" data-value="4" onclick="selectOption(this, 'talent')">
+                            <div class="option-icon">💪</div>
+                            <div class="option-name">健康体质</div>
+                            <div class="option-desc">健康衰减-50%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>选择性格</label>
+                    <div class="card-grid" id="personality-select">
+                        <div class="option-card" data-value="1" onclick="selectOption(this, 'personality')">
+                            <div class="option-icon">🛡️</div>
+                            <div class="option-name">稳健型</div>
+                            <div class="option-desc">风险-20%</div>
+                        </div>
+                        <div class="option-card" data-value="2" onclick="selectOption(this, 'personality')">
+                            <div class="option-icon">⚔️</div>
+                            <div class="option-name">冒险型</div>
+                            <div class="option-desc">高风险高回报+30%</div>
+                        </div>
+                        <div class="option-card" data-value="3" onclick="selectOption(this, 'personality')">
+                            <div class="option-icon">🧘</div>
+                            <div class="option-name">佛系型</div>
+                            <div class="option-desc">快乐衰减-30%</div>
+                        </div>
+                        <div class="option-card" data-value="4" onclick="selectOption(this, 'personality')">
+                            <div class="option-icon">📚</div>
+                            <div class="option-name">卷王</div>
+                            <div class="option-desc">事业+20%, 快乐-10%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>选择难度</label>
+                    <div class="card-grid" id="difficulty-select">
+                        <div class="option-card selected" data-value="1" onclick="selectOption(this, 'difficulty')">
+                            <div class="option-icon">🌟</div>
+                            <div class="option-name">普通模式</div>
+                            <div class="option-desc">转机率90%</div>
+                        </div>
+                        <div class="option-card" data-value="2" onclick="selectOption(this, 'difficulty')">
+                            <div class="option-icon">🔥</div>
+                            <div class="option-name">硬核模式</div>
+                            <div class="option-desc">转机率70%</div>
+                        </div>
+                        <div class="option-card" data-value="3" onclick="selectOption(this, 'difficulty')">
+                            <div class="option-icon">☀️</div>
+                            <div class="option-name">休闲模式</div>
+                            <div class="option-desc">转机率100%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="showScreen('welcome-screen')">返回</button>
+                    <button class="btn btn-primary" onclick="startGame()">开始人生</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏主界面 -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="player-info">
+                    <h2 id="player-name-display">玩家</h2>
+                    <span class="age-badge" id="age-display">18岁</span>
+                    <span class="edu-badge" id="education-display">高中</span>
+                    <span class="job-badge" id="job-display">待业</span>
+                </div>
+                <button class="btn-icon" onclick="showMenu()" title="菜单">☰</button>
+            </div>
+
+            <!-- 状态栏 -->
+            <div class="stats-container">
+                <div class="stat-card stat-money">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-value" id="money-display">0</div>
+                    <div class="stat-label">金钱</div>
+                    <div class="stat-bar"><div class="stat-fill" id="money-bar"></div></div>
+                </div>
+                <div class="stat-card stat-health">
+                    <div class="stat-icon">❤️</div>
+                    <div class="stat-value" id="health-display">80</div>
+                    <div class="stat-label">健康</div>
+                    <div class="stat-bar"><div class="stat-fill" id="health-bar"></div></div>
+                </div>
+                <div class="stat-card stat-happiness">
+                    <div class="stat-icon">😊</div>
+                    <div class="stat-value" id="happiness-display">70</div>
+                    <div class="stat-label">快乐</div>
+                    <div class="stat-bar"><div class="stat-fill" id="happiness-bar"></div></div>
+                </div>
+                <div class="stat-card stat-career">
+                    <div class="stat-icon">💼</div>
+                    <div class="stat-value" id="career-display">20</div>
+                    <div class="stat-label">事业</div>
+                    <div class="stat-bar"><div class="stat-fill" id="career-bar"></div></div>
+                </div>
+            </div>
+
+            <!-- 游戏区域 -->
+            <div class="game-area">
+                <!-- 状态指示器 -->
+                <div class="game-status" id="game-status">
+                    <span class="status-item spouse" id="status-spouse" style="display:none">💑</span>
+                    <span class="status-item children" id="status-children" style="display:none">👶</span>
+                    <span class="status-item house" id="status-house" style="display:none">🏠</span>
+                    <span class="status-item car" id="status-car" style="display:none">🚗</span>
+                    <span class="status-item pet" id="status-pet" style="display:none">🐱</span>
+                </div>
+                
+                <!-- 事件显示区 -->
+                <div class="event-container" id="event-container">
+                    <div class="event-placeholder">
+                        <p>准备好迎接新的一年了吗？</p>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="action-buttons" id="action-buttons">
+                    <button class="btn btn-primary btn-large" onclick="nextYear()">
+                        下一年 →
+                    </button>
+                </div>
+
+                <!-- 快速操作 -->
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="hospital()" title="医院">🏥 医院</button>
+                    <button class="quick-btn" onclick="psychologist()" title="心理医生">🧠 心理</button>
+                    <button class="quick-btn" onclick="lottery()" title="彩票">🎰 彩票</button>
+                    <button class="quick-btn" onclick="showDating()" title="相亲">💕 相亲</button>
+                    <button class="quick-btn" onclick="buyHouse()" title="买房">🏠 买房</button>
+                    <button class="quick-btn" onclick="getPet()" title="养宠物">🐱 养宠</button>
+                    <button class="quick-btn" onclick="travel()" title="旅行">✈️ 旅行</button>
+                    <button class="quick-btn" onclick="stock()" title="股票">📈 股票</button>
+                    <button class="quick-btn" onclick="showJobSearch()" title="找工作">💼 求职</button>
+                </div>
+            </div>
+
+            <!-- 人生履历 -->
+            <div class="timeline-container">
+                <h3>📖 人生履历</h3>
+                <div class="timeline" id="timeline">
+                    <div class="timeline-item timeline-start">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <span class="timeline-age">18岁</span>
+                            <span class="timeline-event">开启人生旅程</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成就 -->
+            <div class="achievements-container">
+                <h3>🏆 成就</h3>
+                <div class="achievements" id="achievements">
+                    <!-- 成就会动态添加 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 事件弹窗 -->
+        <div id="event-modal" class="modal">
+            <div class="modal-content">
+                <div class="event-header" id="event-header">
+                    <span class="event-type" id="event-type">事件</span>
+                    <h3 id="event-title">事件标题</h3>
+                </div>
+                <p class="event-desc" id="event-desc">事件描述</p>
+                <div class="event-choices" id="event-choices">
+                    <!-- 按钮动态生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 菜单面板 -->
+        <div id="menu-panel" class="panel">
+            <div class="panel-header">
+                <h3>菜单</h3>
+                <button class="btn-close" onclick="hideMenu()">×</button>
+            </div>
+            <div class="panel-content">
+                <button class="panel-btn" onclick="saveGame()">💾 保存存档</button>
+                <button class="panel-btn" onclick="resetGame()">🔄 重新开始</button>
+                <button class="panel-btn" onclick="showAchievements()">🏆 成就一览</button>
+                <button class="panel-btn" onclick="showHelp()">❓ 游戏帮助</button>
+            </div>
+        </div>
+
+        <!-- 人生总结 -->
+        <div id="summary-screen" class="screen">
+            <div class="summary-content">
+                <h1 class="summary-title">📖 人生总结</h1>
+                <div class="summary-card">
+                    <div class="summary-item">
+                        <span class="summary-label">姓名</span>
+                        <span class="summary-value" id="summary-name">玩家</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">享年</span>
+                        <span class="summary-value" id="summary-age">0岁</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">总资产</span>
+                        <span class="summary-value" id="summary-money">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">最高快乐</span>
+                        <span class="summary-value" id="summary-happiness">0</span>
+                    </div>
+                </div>
+                <p class="summary-message" id="summary-message"></p>
+                <button class="btn btn-primary btn-large" onclick="resetGame()">
+                    再活一次
+                </button>
+            </div>
+        </div>
+
+        <!-- 遮罩层 -->
+        <div class="overlay" id="overlay" onclick="hideMenu()"></div>
+    </div>
+
+    <script src="js/game.js"></script>
+</body>
+</html>

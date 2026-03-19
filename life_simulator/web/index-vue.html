@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>熬过去 - 人生模拟器</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 欢迎界面 -->
+        <div v-if="currentScreen === 'welcome'" class="screen active">
+            <div class="welcome-container">
+                <h1>🎮 熬过去</h1>
+                <p class="subtitle">人生模拟器</p>
+                <p class="tagline">熬过去就会好 ✨</p>
+                <div class="welcome-buttons">
+                    <button class="btn btn-primary" @click="startNewGame">新游戏</button>
+                    <button v-if="hasSave" class="btn btn-secondary" @click="continueGame">继续游戏</button>
+                </div>
+                <p class="version">v2.0 - Vue版</p>
+            </div>
+        </div>
+
+        <!-- 创建角色 -->
+        <div v-if="currentScreen === 'create'" class="screen active">
+            <div class="create-container">
+                <h2>👤 创建角色</h2>
+                
+                <div class="form-group">
+                    <label>名字</label>
+                    <input type="text" v-model="newGameData.name" placeholder="请输入名字" maxlength="10">
+                </div>
+
+                <div class="option-section">
+                    <h3>🏠 出身选择</h3>
+                    <div class="options-grid">
+                        <div v-for="(bg, key) in config.backgrounds" :key="key"
+                             class="option-card" :class="{selected: newGameData.background === key}"
+                             @click="newGameData.background = key">
+                            <div class="option-icon">{{ getBgIcon(key) }}</div>
+                            <div class="option-name">{{ bg.name }}</div>
+                            <div class="option-stats">💰{{ formatMoney(bg.money) }} | 😊{{ bg.happiness }} | 💼{{ bg.career }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="option-section">
+                    <h3>⭐ 天赋选择</h3>
+                    <div class="options-grid">
+                        <div v-for="(talent, key) in config.talents" :key="key"
+                             class="option-card" :class="{selected: newGameData.talent === key}"
+                             @click="newGameData.talent = key">
+                            <div class="option-icon">📚</div>
+                            <div class="option-name">{{ talent.name }}</div>
+                            <div class="option-desc">{{ talent.desc }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="option-section">
+                    <h3>🧑 性格选择</h3>
+                    <div class="options-grid">
+                        <div v-for="(pers, key) in config.personalities" :key="key"
+                             class="option-card" :class="{selected: newGameData.personality === key}"
+                             @click="newGameData.personality = key">
+                            <div class="option-icon">{{ getPersIcon(key) }}</div>
+                            <div class="option-name">{{ pers.name }}</div>
+                            <div class="option-desc">{{ pers.desc }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="option-section">
+                    <h3>🎯 难度选择</h3>
+                    <div class="options-grid">
+                        <div v-for="(diff, key) in config.difficulties" :key="key"
+                             class="option-card" :class="{selected: newGameData.difficulty === key}"
+                             @click="newGameData.difficulty = key">
+                            <div class="option-icon">{{ getDiffIcon(key) }}</div>
+                            <div class="option-name">{{ diff.name }}</div>
+                            <div class="option-desc">转机率{{ diff.turningRate * 100 }}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-large" @click="confirmCreate">开始游戏</button>
+            </div>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div v-if="currentScreen === 'game'" class="screen active">
+            <div class="game-container">
+                <!-- 顶部状态 -->
+                <div class="game-header">
+                    <div class="player-info">
+                        <span class="player-name">{{ gameState.name }}</span>
+                        <span class="player-age">{{ gameState.age }}岁</span>
+                    </div>
+                    <div class="player-status">
+                        <span class="status-tag education">{{ getEducationName(gameState.education) }}</span>
+                        <span class="status-tag job">{{ gameState.job || '待业' }}</span>
+                    </div>
+                </div>
+
+                <!-- 属性条 -->
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <div class="stat-label">
+                            <span>💰 金钱</span>
+                            <span>{{ formatMoney(gameState.money) }}</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill money" :style="{width: Math.min(100, gameState.money / 10000) + '%'}"></div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">
+                            <span>❤️ 健康</span>
+                            <span>{{ gameState.health }}</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill health" :style="{width: gameState.health + '%'}"></div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">
+                            <span>😊 快乐</span>
+                            <span>{{ gameState.happiness }}</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill happiness" :style="{width: gameState.happiness + '%'}"></div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">
+                            <span>💼 事业</span>
+                            <span>{{ gameState.career }}</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill career" :style="{width: gameState.career + '%'}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 状态标签 -->
+                <div class="status-tags">
+                    <span v-if="gameState.spouse" class="status-tag spouse">💑 {{ gameState.spouse }}</span>
+                    <span v-if="gameState.children?.length" class="status-tag children">👶 {{ gameState.children.length }}个孩子</span>
+                    <span v-if="gameState.house" class="status-tag house">🏠 有房</span>
+                    <span v-if="gameState.car && gameState.car !== 'none'" class="status-tag car">🚗 有车</span>
+                    <span v-if="gameState.pet" class="status-tag pet">🐱 有宠</span>
+                </div>
+
+                <!-- 快速操作 -->
+                <div class="quick-actions">
+                    <button class="quick-btn" @click="hospital" title="医院">🏥 医院</button>
+                    <button class="quick-btn" @click="psychologist" title="心理医生">🧠 心理</button>
+                    <button class="quick-btn" @click="lottery" title="彩票">🎰 彩票</button>
+                    <button class="quick-btn" @click="showDating" title="相亲">💕 相亲</button>
+                    <button class="quick-btn" @click="buyHouse" title="买房">🏠 买房</button>
+                    <button class="quick-btn" @click="getPet" title="养宠物">🐱 养宠</button>
+                    <button class="quick-btn" @click="travel" title="旅行">✈️ 旅行</button>
+                    <button class="quick-btn" @click="showStock" title="股票">📈 股票</button>
+                    <button class="quick-btn" @click="showJobSearch" title="找工作">💼 求职</button>
+                </div>
+
+                <!-- 下一年按钮 -->
+                <div class="next-year-section">
+                    <button class="btn btn-primary btn-large" @click="nextYear" :disabled="gameState.isGameOver">
+                        {{ gameState.isGameOver ? '游戏结束' : '下一年 ⏭️' }}
+                    </button>
+                </div>
+
+                <!-- 人生履历 -->
+                <div class="timeline-section">
+                    <h3>📖 人生履历</h3>
+                    <div class="timeline">
+                        <div v-for="(item, index) in gameState.timeline.slice(-15)" :key="index" class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-content">
+                                <span class="timeline-age">{{ item.age }}岁</span>
+                                <span class="timeline-event">{{ item.event }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 成就展示 -->
+                <div class="achievements-section">
+                    <h3>🏆 成就 ({{ unlockedAchievements }}/{{ totalAchievements }})</h3>
+                    <div class="achievements-grid">
+                        <div v-for="ach in config.achievements" :key="ach.id"
+                             class="achievement" :class="{unlocked: gameState.achievements?.includes(ach.id)}">
+                            <span class="achievement-icon">{{ ach.icon }}</span>
+                            <span class="achievement-name">{{ ach.name }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 事件弹窗 -->
+        <div v-if="showModal" class="modal active" @click.self="closeModal">
+            <div class="modal-content">
+                <div class="event-header">
+                    <span class="event-type">{{ modalType }}</span>
+                    <h3>{{ modalTitle }}</h3>
+                </div>
+                <p class="event-desc">{{ modalDesc }}</p>
+                <div class="event-choices">
+                    <button v-for="(choice, idx) in modalChoices" :key="idx"
+                            class="event-choice-btn" @click="handleChoice(idx)">
+                        {{ choice.text }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏结束 -->
+        <div v-if="currentScreen === 'summary'" class="screen active">
+            <div class="summary-container">
+                <h1>🎮 游戏结束</h1>
+                <div class="summary-card">
+                    <p class="summary-name">{{ gameState.name }}</p>
+                    <p class="summary-age">享年: {{ gameState.age }}岁</p>
+                    <p class="summary-money">总资产: {{ formatMoney(gameState.money) }}</p>
+                    <p class="summary-happiness">最终快乐: {{ gameState.happiness }}</p>
+                    <p class="summary-message">{{ summaryMessage }}</p>
+                </div>
+                <button class="btn btn-primary" @click="resetGame">重新开始</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/game-vue.js"></script>
+</body>
+</html>
