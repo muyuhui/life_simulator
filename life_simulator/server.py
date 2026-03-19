@@ -160,6 +160,7 @@ class GameState:
             if self.data["consecutiveTurning"] >= 2 and random.random() < 0.1:
                 self.apply_effect({"money": 100000, "health": 50, "happiness": 50, "career": 30})
                 self.data["lifeLabels"].append("逆袭者")
+                self.data["consecutiveTurning"] = 0  # 逆袭后重置
                 return {"type": "turning", "title": "人生逆袭！", "desc": "连续绝境触发超级转机！", "effects": {"money": 100000}}
             
             # 出身专属转机（80%概率）
