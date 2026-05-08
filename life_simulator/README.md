@@ -82,8 +82,8 @@ life_simulator/
 │   ├── css/
 │   │   └── style.css # 精美样式
 │   └── js/
-│       └── game.js  # 游戏逻辑
-├── savegame.json    # 游戏存档
+│       └── game-vue.js  # 游戏逻辑
+├── archive/         # 历史入口与旧实现
 └── README.md         # 本文件
 ```
 

@@ -1,0 +1,720 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+熬过去 - 人生模拟器 后端API服务
+支持Web前端调用，提供完整的游戏逻辑
+"""
+
+import json
+import random
+from flask import Flask, request, jsonify, session
+from flask_cors import CORS
+import os
+
+app = Flask(__name__)
+app.secret_key = 'life_simulator_secret_key_2024'
+CORS(app, supports_credentials=True)
+
+# ============ 配置数据 ============
+
+BACKGROUNDS = {
+    "1": {"name": "小镇青年", "money": 5000, "happiness": 70, "career": 20, "desc": "出身小镇，生活成本低"},
+    "2": {"name": "城市中产", "money": 50000, "happiness": 60, "career": 50, "desc": "城市户口，起点较高"},
+    "3": {"name": "富二代", "money": 200000, "happiness": 80, "career": 30, "desc": "家底丰厚，起点最高"},
+    "4": {"name": "农村出身", "money": 2000, "happiness": 60, "career": 10, "desc": "白手起家，充满挑战"},
+}
+
+TALENTS = {
+    "1": {"name": "学习天赋", "desc": "考试成功率+30%", "effect": {"studyBonus": 0.3}},
+    "2": {"name": "社交达人", "desc": "人际关系+20%", "effect": {"socialBonus": 0.2}},
+    "3": {"name": "财运亨通", "desc": "金钱收益+30%", "effect": {"moneyBonus": 0.3}},
+    "4": {"name": "健康体质", "desc": "健康衰减-50%", "effect": {"healthDecay": 0.5}},
+    "5": {"name": "天选之人", "desc": "所有属性+10%", "effect": {"allBonus": 0.1}},
+}
+
+PERSONALITIES = {
+    "1": {"name": "稳健型", "desc": "风险-20%", "effect": {"riskReduction": 0.2}},
+    "2": {"name": "冒险型", "desc": "高风险高回报+30%", "effect": {"riskBonus": 0.3}},
+    "3": {"name": "佛系型", "desc": "快乐衰减-30%", "effect": {"happinessDecay": 0.3}},
+    "4": {"name": "卷王", "desc": "事业成长+20%, 快乐-10%", "effect": {"careerBonus": 0.2, "happinessCost": 0.1}},
+}
+
+DIFFICULTIES = {
+    "1": {"name": "普通模式", "turningRate": 0.9, "healthThreshold": 20, "moneyThreshold": -50000, "happinessThreshold": 10},
+    "2": {"name": "硬核模式", "turningRate": 0.7, "healthThreshold": 10, "moneyThreshold": -80000, "happinessThreshold": 5},
+    "3": {"name": "休闲模式", "turningRate": 1.0, "healthThreshold": 30, "moneyThreshold": -30000, "happinessThreshold": 15},
+}
+
+# 职业配置
+JOBS = {
+    "工人": {"income": 150, "risk": 0.15, "growth": 0.02, "edu": 0},
+    "服务员": {"income": 120, "risk": 0.10, "growth": 0.015, "edu": 0},
+    "司机": {"income": 180, "risk": 0.12, "growth": 0.02, "edu": 0},
+    "教师": {"income": 200, "risk": 0.05, "growth": 0.03, "edu": 1},
+    "会计": {"income": 200, "risk": 0.05, "growth": 0.025, "edu": 1},
+    "程序员": {"income": 300, "risk": 0.08, "growth": 0.05, "edu": 1},
+    "医生": {"income": 350, "risk": 0.10, "growth": 0.04, "edu": 2},
+    "律师": {"income": 400, "risk": 0.08, "growth": 0.04, "edu": 2},
+    "公务员": {"income": 220, "risk": 0.02, "growth": 0.02, "edu": 1},
+    "网红": {"income": 250, "risk": 0.20, "growth": 0.08, "edu": 1},
+    "创业者": {"income": 300, "risk": 0.40, "growth": 0.10, "edu": 1},
+    "经理": {"income": 400, "risk": 0.10, "growth": 0.03, "edu": 2},
+    "CEO": {"income": 800, "risk": 0.20, "growth": 0.02, "edu": 3},
+}
+
+EDUCATIONS = {
+    0: {"name": "高中", "baseIncome": 100, "examDifficulty": 0},
+    1: {"name": "本科", "baseIncome": 200, "examDifficulty": 0.4},
+    2: {"name": "硕士", "baseIncome": 350, "examDifficulty": 0.6},
+    3: {"name": "博士", "baseIncome": 500, "examDifficulty": 0.8},
+}
+
+# 成就列表
+ACHIEVEMENTS = [
+    {"id": "millionaire", "name": "百万富翁", "desc": "拥有100万现金", "icon": "💰", "condition": lambda s: s.get("money", 0) >= 1000000},
+    {"id": "centenarian", "name": "百岁老人", "desc": "活到100岁", "icon": "🎂", "condition": lambda s: s.get("age", 0) >= 100},
+    {"id": "winner", "name": "人生赢家", "desc": "金钱、快乐、事业都达到80+", "icon": "🏆", "condition": lambda s: s.get("money", 0) >= 100000 and s.get("happiness", 0) >= 80 and s.get("career", 0) >= 80},
+    {"id": "survivor", "name": "绝境逢生", "desc": "触发5次转折点", "icon": "🌟", "condition": lambda s: s.get("turningPoints", 0) >= 5},
+    {"id": "married", "name": "结婚", "desc": "找到伴侣", "icon": "💑", "condition": lambda s: s.get("spouse") is not None},
+    {"id": "family", "name": "儿女成群", "desc": "有3个孩子", "icon": "👨‍👩‍👧‍👦", "condition": lambda s: len(s.get("children", [])) >= 3},
+    {"id": "earlyDeath", "name": "英年早逝", "desc": "30岁前去世", "icon": "💀", "condition": lambda s: s.get("isDead", False) and s.get("age", 0) < 30},
+    {"id": "lottery", "name": "彩票中奖", "desc": "中一次彩票", "icon": "🎰", "condition": lambda s: any(e.get("type") == "lottery_win" for e in s.get("events", []))},
+    {"id": "homeowner", "name": "有房一族", "desc": "买一套房子", "icon": "🏠", "condition": lambda s: s.get("house", False)},
+    {"id": "traveler", "name": "环游世界", "desc": "去过10个国家", "icon": "🌍", "condition": lambda s: len(s.get("countries", [])) >= 10},
+    {"id": "petOwner", "name": "铲屎官", "desc": "养一只宠物", "icon": "🐱", "condition": lambda s: s.get("pet", False)},
+    {"id": "fitness", "name": "健身达人", "desc": "健康达到100", "icon": "💪", "condition": lambda s: s.get("health", 0) >= 100},
+    {"id": "entrepreneur", "name": "创业成功", "desc": "创业成功一次", "icon": "🚀", "condition": lambda s: any(e.get("type") == "entrepreneur_success" for e in s.get("events", []))},
+    {"id": "bachelor", "name": "本科毕业", "desc": "获得本科学历", "icon": "🎓", "condition": lambda s: s.get("education", 0) >= 1},
+    {"id": "master", "name": "硕士毕业", "desc": "获得硕士学历", "icon": "🎓", "condition": lambda s: s.get("education", 0) >= 2},
+    {"id": "phd", "name": "博士毕业", "desc": "获得博士学位", "icon": "🎓", "condition": lambda s: s.get("education", 0) >= 3},
+    {"id": "employed", "name": "找到工作", "desc": "获得第一份工作", "icon": "💼", "condition": lambda s: s.get("job") is not None},
+    {"id": "comeback", "name": "否极泰来", "desc": "触发人生逆袭", "icon": "🌈", "condition": lambda s: "逆袭者" in s.get("lifeLabels", [])},
+]
+
+# ============ 工具函数 ============
+
+def random_int(min_val, max_val):
+    return random.randint(min_val, max_val)
+
+def random_choice(arr):
+    return random.choice(arr)
+
+def clamp(value, min_val=0, max_val=100):
+    return max(min_val, min(max_val, value))
+
+def format_money(amount):
+    if amount >= 10000:
+        return f"{amount/10000:.1f}万"
+    return str(amount)
+
+# ============ 游戏核心类 ============
+
+class GameState:
+    def __init__(self):
+        self.data = {
+            "name": "",
+            "age": 18,
+            "background": "1",
+            "talent": "1",
+            "personality": "1",
+            "difficulty": "1",
+            "money": 5000,
+            "health": 80,
+            "happiness": 70,
+            "career": 20,
+            "education": 0,
+            "job": None,
+            "year": 1,
+            "isGameOver": False,
+            "isDead": False,
+            "deathReason": "",
+            "achievements": [],
+            "events": [],
+            "timeline": [{"age": 18, "event": "开启人生旅程"}],
+            "spouse": None,
+            "children": [],
+            "house": False,
+            "pet": False,
+            "countries": [],
+            "stocks": 0,
+            "turningPoints": 0,
+            "consecutiveTurning": 0,
+            "lifeLabels": [],
+            "debt": 0,
+            "keyChoices": {"age18": None, "age25": None, "age35": None, "age50": None},
+        }
+    
+    def apply_effect(self, effect):
+        if "money" in effect:
+            self.data["money"] += effect["money"]
+        if "health" in effect:
+            self.data["health"] = clamp(self.data["health"] + effect["health"])
+        if "happiness" in effect:
+            self.data["happiness"] = clamp(self.data["happiness"] + effect["happiness"])
+        if "career" in effect:
+            self.data["career"] = clamp(self.data["career"] + effect["career"])
+        if "house" in effect:
+            self.data["house"] = True
+        if "pet" in effect:
+            self.data["pet"] = True
+    
+    def check_death(self):
+        if self.data["health"] <= 0:
+            if random.random() < 0.1:
+                self.data["isDead"] = True
+                self.data["deathReason"] = "因病去世"
+                self.data["isGameOver"] = True
+                return True
+            else:
+                self.trigger_turning_point()
+        return False
+    
+    def check_turning_point(self):
+        diff = DIFFICULTIES[self.data["difficulty"]]
+        
+        crisis_conditions = [
+            self.data["health"] < diff["healthThreshold"],
+            self.data["money"] < diff["moneyThreshold"],
+            self.data["happiness"] < diff["happinessThreshold"]
+        ]
+        
+        if any(crisis_conditions) and random.random() < diff["turningRate"] * 0.3:
+            self.data["turningPoints"] += 1
+            self.data["consecutiveTurning"] += 1
+            
+            if self.data["consecutiveTurning"] >= 2 and random.random() < 0.1:
+                self.apply_effect({
+                    "money": 100000,
+                    "health": 50,
+                    "happiness": 50,
+                    "career": 30
+                })
+                self.data["lifeLabels"].append("逆袭者")
+                return {
+                    "type": "turning",
+                    "title": "人生逆袭！",
+                    "desc": "连续绝境触发超级转机！所有属性大幅提升！",
+                    "effects": {"money": 100000, "health": 50, "happiness": 50, "career": 30}
+                }
+            
+            event = random_choice(TURNING_POINT_EVENTS)
+            self.apply_effect(event["effect"])
+            
+            self.data["timeline"].append({
+                "age": self.data["age"],
+                "event": f"🌟 转折: {event['title']}"
+            })
+            
+            return {
+                "type": "turning",
+                "title": event["title"],
+                "desc": event["desc"],
+                "effects": event["effect"]
+            }
+        else:
+            self.data["consecutiveTurning"] = 0
+        
+        return None
+    
+    def trigger_turning_point(self):
+        event = random_choice(TURNING_POINT_EVENTS)
+        self.apply_effect(event["effect"])
+        self.data["turningPoints"] += 1
+        
+        self.data["timeline"].append({
+            "age": self.data["age"],
+            "event": f"🌟 转折: {event['title']}"
+        })
+    
+    def next_year(self):
+        self.data["year"] += 1
+        self.data["age"] += 1
+        
+        health_change = -random_int(2, 8)
+        happiness_change = -random_int(2, 8)
+        
+        pers = PERSONALITIES[self.data["personality"]]
+        if "happinessDecay" in pers["effect"]:
+            happiness_change *= pers["effect"]["happinessDecay"]
+        
+        talent = TALENTS[self.data["talent"]]
+        if "healthDecay" in talent["effect"]:
+            health_change *= talent["effect"]["healthDecay"]
+        
+        if self.data["pet"]:
+            happiness_change += 5
+        if self.data["house"]:
+            happiness_change += 5
+        
+        self.data["health"] = clamp(self.data["health"] + health_change)
+        self.data["happiness"] = clamp(self.data["happiness"] + happiness_change)
+        
+        career_change = random_int(-2, 5)
+        if "careerBonus" in pers["effect"]:
+            career_change *= (1 + pers["effect"]["careerBonus"])
+        self.data["career"] = clamp(self.data["career"] + career_change)
+        
+        income = 100
+        edu = EDUCATIONS[self.data["education"]]
+        income = edu["baseIncome"] * (1 + self.data["career"] / 100)
+        
+        if self.data["job"] and self.data["job"] in JOBS:
+            job_data = JOBS[self.data["job"]]
+            income = job_data["income"] * (1 + self.data["career"] / 100)
+            
+            if random.random() < job_data["growth"]:
+                self.data["career"] = clamp(self.data["career"] + 5)
+            
+            if random.random() < job_data["risk"] * 0.1:
+                self.data["job"] = None
+                self.data["timeline"].append({"age": self.data["age"], "event": "💸 失业了"})
+                income = 0
+        
+        if "moneyBonus" in talent["effect"]:
+            income *= (1 + talent["effect"]["moneyBonus"])
+        
+        self.data["money"] += int(income)
+        
+        if self.data["spouse"]:
+            self.data["money"] -= 3000
+            self.data["happiness"] = clamp(self.data["happiness"] + 5)
+        
+        for child in self.data["children"]:
+            self.data["money"] -= 2000
+        if self.data["children"]:
+            self.data["happiness"] = clamp(self.data["happiness"] + len(self.data["children"]) * 3)
+        
+        self.data["timeline"].append({
+            "age": self.data["age"],
+            "event": f"年收入 {format_money(int(income))}"
+        })
+        
+        if self.check_death():
+            return {"type": "death", "reason": self.data["deathReason"]}
+        
+        turning = self.check_turning_point()
+        if turning:
+            return turning
+        
+        # 检查关键年龄事件
+        if self.data["age"] in KEY_AGE_EVENTS:
+            events = KEY_AGE_EVENTS[self.data["age"]]
+            return {"type": "key_event", "event": random_choice(events)}
+        
+        # 30%概率随机普通事件
+        if random.random() < 0.3:
+            event = random_choice(NORMAL_EVENTS)
+            return {"type": "normal_event", "event": event}
+        
+        return {"type": "normal", "message": f"年龄: {self.data['age']}岁"}
+    
+    def check_achievements(self):
+        new_achievements = []
+        for ach in ACHIEVEMENTS:
+            if ach["id"] not in self.data["achievements"] and ach["condition"](self.data):
+                self.data["achievements"].append(ach["id"])
+                new_achievements.append(ach)
+        return new_achievements
+    
+    def to_dict(self):
+        return self.data.copy()
+
+
+# 转机事件库
+TURNING_POINT_EVENTS = [
+    {"title": "贵人相助", "desc": "在你最困难的时候，有人伸出了援手", "effect": {"money": 30000, "happiness": 20}},
+    {"title": "奇迹康复", "desc": "医生说这是医学奇迹", "effect": {"health": 50}},
+    {"title": "继承遗产", "desc": "远方亲戚去世了，留给你一笔遗产", "effect": {"money": 50000, "happiness": 15}},
+    {"title": "中彩票", "desc": "你随手买的彩票居然中了！", "effect": {"money": 100000, "happiness": 30}},
+    {"title": "遇到真爱", "desc": "在最孤单的时候，你遇到了对的人", "effect": {"happiness": 40}},
+    {"title": "想通了", "desc": "经历了这么多，你突然想通了一些事", "effect": {"happiness": 30, "health": 10}},
+    {"title": "翻身做主", "desc": "多年的努力终于得到了回报！", "effect": {"money": 80000, "career": 20, "happiness": 20}},
+]
+
+NORMAL_EVENTS = [
+    {"type": "work", "title": "工作表现", "desc": "你在工作中表现出色...", "choices": [
+        {"text": "继续努力", "effect": {"career": 5, "money": 1000}},
+        {"text": "适当休息", "effect": {"happiness": 5}},
+    ]},
+    {"type": "social", "title": "朋友聚会", "desc": "朋友们组织了一次聚会。", "choices": [
+        {"text": "参加", "effect": {"money": -500, "happiness": 15}},
+        {"text": "不去", "effect": {"happiness": -5}},
+    ]},
+    {"type": "health", "title": "坚持锻炼", "desc": "你开始健身，身体越来越好。", "choices": [
+        {"text": "继续", "effect": {"health": 10, "money": -1000, "happiness": 5}},
+    ]},
+    {"type": "hobby", "title": "培养兴趣", "desc": "你培养了一个新爱好。", "choices": [
+        {"text": "发展", "effect": {"happiness": 10, "money": -2000}},
+    ]},
+    {"type": "money", "title": "理财收益", "desc": "你的投资收益不错。", "choices": [
+        {"text": "继续持有", "effect": {"money": 5000}},
+    ]},
+]
+
+KEY_AGE_EVENTS = {
+    18: [
+        {"type": "exam", "title": "高考", "desc": "你高中毕业了，面临人生第一次大考！", "choices": [
+            {"text": "努力备考", "effect": {"money": -5000}, "special": "college_exam"},
+            {"text": "打工赚钱", "effect": {"money": 5000}, "special": "skip_exam"},
+        ]},
+    ],
+    22: [
+        {"type": "graduation", "title": "大学毕业", "desc": "本科毕业，面临人生选择！", "choices": [
+            {"text": "考研深造", "effect": {"money": -20000}, "special": "master_exam"},
+            {"text": "直接工作", "effect": {"happiness": 5}, "special": "find_job"},
+        ]},
+    ],
+}
+
+
+# ============ 路由 ============
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    return jsonify({
+        "backgrounds": BACKGROUNDS,
+        "talents": TALENTS,
+        "personalities": PERSONALITIES,
+        "difficulties": DIFFICULTIES,
+        "jobs": {k: v for k, v in JOBS.items()},
+        "educations": EDUCATIONS,
+        "achievements": [{"id": a["id"], "name": a["name"], "desc": a["desc"], "icon": a["icon"]} for a in ACHIEVEMENTS]
+    })
+
+
+@app.route('/api/new_game', methods=['POST'])
+def new_game():
+    data = request.json
+    
+    game = GameState()
+    game.data["name"] = data.get("name", "玩家")
+    game.data["background"] = data.get("background", "1")
+    game.data["talent"] = data.get("talent", "1")
+    game.data["personality"] = data.get("personality", "1")
+    game.data["difficulty"] = data.get("difficulty", "1")
+    
+    bg = BACKGROUNDS[game.data["background"]]
+    game.data["money"] = bg["money"]
+    game.data["happiness"] = bg["happiness"]
+    game.data["career"] = bg["career"]
+    
+    session['game'] = game.data
+    
+    return jsonify({"success": True, "game": game.to_dict()})
+
+
+@app.route('/api/load_game', methods=['GET'])
+def load_game():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    return jsonify({"success": True, "game": game_data})
+
+
+@app.route('/api/save_game', methods=['POST'])
+def save_game():
+    data = request.json
+    session['game'] = data.get("game", {})
+    return jsonify({"success": True})
+
+
+@app.route('/api/next_year', methods=['POST'])
+def next_year():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    game = GameState()
+    game.data = game_data
+    
+    result = game.next_year()
+    new_achievements = game.check_achievements()
+    
+    if game.data["isGameOver"]:
+        result = {"type": "game_over", "reason": game.data.get("deathReason", "未知"), "age": game.data["age"]}
+    
+    session['game'] = game.data
+    
+    return jsonify({
+        "success": True,
+        "game": game.to_dict(),
+        "result": result,
+        "newAchievements": [{"id": a["id"], "name": a["name"], "icon": a["icon"]} for a in new_achievements]
+    })
+
+
+@app.route('/api/handle_choice', methods=['POST'])
+def handle_choice():
+    data = request.json
+    game_data = session.get('game')
+    
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    choice_effect = data.get("effect", {})
+    special = data.get("special", "")
+    
+    game = GameState()
+    game.data = game_data
+    
+    game.apply_effect(choice_effect)
+    
+    if special == "college_exam":
+        talent = TALENTS[game.data["talent"]]
+        success_rate = 0.5 + talent["effect"].get("studyBonus", 0)
+        if random.random() < success_rate:
+            game.data["education"] = 1
+            game.data["happiness"] = clamp(game.data["happiness"] + 30)
+            game.data["timeline"].append({"age": game.data["age"], "event": "🎓 考上大学"})
+        else:
+            game.data["happiness"] = clamp(game.data["happiness"] - 20)
+            game.data["timeline"].append({"age": game.data["age"], "event": "🎓 高考落榜"})
+    
+    elif special == "find_job":
+        edu = game.data["education"]
+        available_jobs = [j for j, v in JOBS.items() if v.get("edu", 0) <= edu]
+        if available_jobs:
+            job = random_choice(available_jobs)
+            game.data["job"] = job
+            game.data["happiness"] = clamp(game.data["happiness"] + 15)
+            game.data["timeline"].append({"age": game.data["age"], "event": f"💼 成为{job}"})
+    
+    if game.check_death():
+        result = {"type": "game_over", "reason": game.data.get("deathReason", "未知")}
+    else:
+        turning = game.check_turning_point()
+        result = turning if turning else {"type": "continue"}
+    
+    new_achievements = game.check_achievements()
+    
+    game.data["events"].append({"type": "choice", "special": special, "age": game.data["age"]})
+    
+    session['game'] = game.data
+    
+    return jsonify({
+        "success": True,
+        "game": game.to_dict(),
+        "result": result,
+        "newAchievements": [{"id": a["id"], "name": a["name"], "icon": a["icon"]} for a in new_achievements]
+    })
+
+
+@app.route('/api/hospital', methods=['POST'])
+def hospital():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    if game_data.get("money", 0) < 2000:
+        return jsonify({"success": False, "error": "钱不够"})
+    
+    game_data["money"] -= 2000
+    health_gain = random_int(15, 35)
+    game_data["health"] = clamp(game_data["health"] + health_gain)
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": f"治疗完成，健康+{health_gain}"})
+
+
+@app.route('/api/psychologist', methods=['POST'])
+def psychologist():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    if game_data.get("money", 0) < 1000:
+        return jsonify({"success": False, "error": "钱不够"})
+    
+    game_data["money"] -= 1000
+    happiness_gain = random_int(10, 25)
+    game_data["happiness"] = clamp(game_data["happiness"] + happiness_gain)
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": f"咨询完成，快乐+{happiness_gain}"})
+
+
+@app.route('/api/lottery', methods=['POST'])
+def lottery():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    if game_data.get("money", 0) < 10:
+        return jsonify({"success": False, "error": "钱不够"})
+    
+    game_data["money"] -= 10
+    
+    rand = random.random()
+    prize = 0
+    message = ""
+    
+    if rand < 0.005:
+        prize = 100000
+        message = "恭喜中一等奖10万元！"
+        game_data["happiness"] = clamp(game_data["happiness"] + 80)
+    elif rand < 0.015:
+        prize = 10000
+        message = "恭喜中二等奖1万元！"
+        game_data["happiness"] = clamp(game_data["happiness"] + 40)
+    elif rand < 0.05:
+        prize = 1000
+        message = "恭喜中三等奖1000元！"
+        game_data["happiness"] = clamp(game_data["happiness"] + 20)
+    else:
+        message = "很遗憾，没有中奖..."
+    
+    game_data["money"] += prize
+    if prize > 0:
+        game_data["events"].append({"type": "lottery_win", "age": game_data["age"]})
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": message, "prize": prize})
+
+
+@app.route('/api/dating', methods=['POST'])
+def dating():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    if game_data.get("spouse"):
+        return jsonify({"success": False, "error": "已婚"})
+    
+    if game_data.get("money", 0) < 500:
+        return jsonify({"success": False, "error": "钱不够"})
+    
+    game_data["money"] -= 500
+    
+    talent = TALENTS[game_data.get("talent", "1")]
+    success_rate = 0.3 + talent["effect"].get("socialBonus", 0)
+    
+    if random.random() < success_rate:
+        names = ["小美", "小红", "小丽", "小芳", "小明", "小张", "小王", "小刘"]
+        game_data["spouse"] = random_choice(names)
+        game_data["happiness"] = clamp(game_data["happiness"] + 20)
+        game_data["timeline"].append({"age": game_data["age"], "event": f"💑 遇到{game_data['spouse']}"})
+        message = f"相亲成功！你认识了{game_data['spouse']}！"
+        
+        if random.random() < 0.4:
+            child_names = ["小明", "小红", "小华", "小军"]
+            game_data["children"].append({"name": random_choice(child_names), "age": 0})
+            game_data["happiness"] = clamp(game_data["happiness"] + 10)
+            game_data["timeline"].append({"age": game_data["age"], "event": "👶 有了孩子"})
+    else:
+        message = "没有遇到合适的人..."
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": message})
+
+
+@app.route('/api/buy_house', methods=['POST'])
+def buy_house():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    if game_data.get("house"):
+        return jsonify({"success": False, "error": "已有房"})
+    
+    if game_data.get("money", 0) < 100000:
+        return jsonify({"success": False, "error": "钱不够"})
+    
+    game_data["money"] -= 100000
+    game_data["house"] = True
+    game_data["happiness"] = clamp(game_data["happiness"] + 30)
+    game_data["timeline"].append({"age": game_data["age"], "event": "🏠 买房"})
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": "恭喜买房！"})
+
+
+@app.route('/api/get_pet', methods=['POST'])
+def get_pet():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    if game_data.get("pet"):
+        return jsonify({"success": False, "error": "已有宠物"})
+    
+    if game_data.get("money", 0) < 3000:
+        return jsonify({"success": False, "error": "钱不够"})
+    
+    game_data["money"] -= 3000
+    game_data["pet"] = True
+    game_data["happiness"] = clamp(game_data["happiness"] + 20)
+    game_data["timeline"].append({"age": game_data["age"], "event": "🐱 养宠物"})
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": "你领养了一只可爱的小猫！"})
+
+
+@app.route('/api/travel', methods=['POST'])
+def travel():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    options = [
+        {"name": "周边游", "cost": 3000, "happiness": 10, "country": None},
+        {"name": "国内游", "cost": 8000, "happiness": 20, "country": "国内"},
+        {"name": "出境游", "cost": 30000, "happiness": 30, "country": "境外"},
+    ]
+    
+    trip = random_choice(options)
+    
+    if game_data.get("money", 0) < trip["cost"]:
+        return jsonify({"success": False, "error": "钱不够"})
+    
+    game_data["money"] -= trip["cost"]
+    game_data["happiness"] = clamp(game_data["happiness"] + trip["happiness"])
+    
+    if trip["country"] and trip["country"] not in game_data.get("countries", []):
+        game_data.setdefault("countries", []).append(trip["country"])
+    
+    game_data["timeline"].append({"age": game_data["age"], "event": f"✈️ {trip['name']}"})
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": f"去{trip['name']}玩了一圈，心情愉快！"})
+
+
+@app.route('/api/stock', methods=['POST'])
+def stock():
+    game_data = session.get('game')
+    if not game_data:
+        return jsonify({"success": False, "error": "没有存档"})
+    
+    data = request.json
+    percent = data.get("percent", 0.2)
+    
+    amount = int(game_data.get("money", 0) * percent)
+    if amount <= 0:
+        return jsonify({"success": False, "error": "没有足够的资金"})
+    
+    change = random.uniform(-0.3, 0.5)
+    profit = int(amount * change)
+    game_data["money"] += profit
+    
+    if profit > 0:
+        game_data["stocks"] = game_data.get("stocks", 0) + profit
+        message = f"股票赚了{format_money(profit)}！"
+    else:
+        message = f"股票赔了{format_money(-profit)}..."
+    
+    game_data["timeline"].append({"age": game_data["age"], "event": f"📈 股票{'盈利' if profit > 0 else '亏损'}"})
+    
+    session['game'] = game_data
+    
+    return jsonify({"success": True, "game": game_data, "message": message, "profit": profit})
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
