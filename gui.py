@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ⚠️ DEPRECATED: 此文件为独立 Tkinter GUI 原型，游戏规则与 core.py 不同步。
+# 规则以 core.py + config.py 为准。开发/测试请用 python server.py + web/。
 """
 "熬过去"人生模拟器 - GUI版本
 """

@@ -1,0 +1,26 @@
+{
+  "name": "测试玩家",
+  "age": 101,
+  "health": 95,
+  "money": 280500,
+  "happiness": 100,
+  "career": 100,
+  "background": "1",
+  "spouse": "小红",
+  "children": [
+    {
+      "name": "小红",
+      "age": 38
+    },
+    {
+      "name": "小明",
+      "age": 0
+    }
+  ],
+  "achievements": [
+    "rich_and_happy",
+    "married",
+    "centenarian"
+  ],
+  "diary": []
+}

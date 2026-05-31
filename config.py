@@ -558,6 +558,40 @@ DAILY_EVENTS = [
      "choices": [{"text": "心情莫名好起来", "effects": {"happiness": 5}}, {"text": "心想今天运气不错", "effects": {"happiness": 3}}]},
 ]
 
+# ============ 已废弃的事件数据（保留供历史参考）============
+# DEPRECATED: 以下 SMALL_EVENTS 和 HOLIDAY_EVENTS 已被叙事引擎的 EVENT_CARDS + DAILY_EVENTS 替代。
+# core.py 的 next_year() 不再调用这些数据。保留仅供版本迁移或未来裁剪参考。
+
+SMALL_EVENTS = {
+    "happy": [
+        {"title": "买到喜欢的奶茶", "effect": {"happiness": 2}},
+        {"title": "加班费到账", "effect": {"money": 500}},
+        {"title": "宠物撒娇", "effect": {"happiness": 3}},
+        {"title": "捡到零钱", "effect": {"money": 100, "happiness": 1}},
+        {"title": "同事分享零食", "effect": {"happiness": 2}},
+    ],
+    "sad": [
+        {"title": "上班迟到", "effect": {"money": -200}},
+        {"title": "错过消息", "effect": {"happiness": -2}},
+        {"title": "健身拉伤", "effect": {"health": -5}},
+        {"title": "外卖洒漏", "effect": {"happiness": -3}},
+        {"title": "下雨没带伞", "effect": {"health": -2, "happiness": -1}},
+    ],
+}
+
+HOLIDAY_EVENTS = {
+    "birthday": {
+        "young": [
+            {"text": "朋友庆祝", "effect": {"happiness": 15, "money": -1000}},
+            {"text": "独自度过", "effect": {"happiness": 5}},
+        ],
+        "old": [
+            {"text": "子女祝寿", "effect": {"happiness": 30, "money": 20000}},
+            {"text": "回忆人生", "effect": {"happiness": 10}},
+        ],
+    },
+}
+
 # ============ 通用函数 ============
 
 def clamp(value, min_val=0, max_val=100):

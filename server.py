@@ -114,18 +114,6 @@ def next_year():
     return finish(game, result)
 
 
-@app.route("/api/handle_key_choice", methods=["POST"])
-def handle_key_choice():
-    game = with_game()
-    if not isinstance(game, GameState):
-        return game
-    try:
-        result = game.handle_key_choice(int(payload().get("choiceIndex", 0)))
-    except ValueError as exc:
-        return fail(str(exc))
-    return finish(game, result)
-
-
 @app.route("/api/handle_event_choice", methods=["POST"])
 def handle_event_choice():
     game = with_game()

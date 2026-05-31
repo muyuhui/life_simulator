@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(openspec --help)",
+      "Bash(openspec schemas *)",
+      "Bash(openspec change *)",
+      "Bash(openspec new *)",
+      "Bash(openspec instructions *)",
+      "Bash(openspec validate *)",
+      "Bash(openspec status *)",
+      "Bash(openspec list *)",
+      "Bash(python -c \"from config import *; print\\('config OK'\\); print\\(f'EVENT_CARDS: {len\\(EVENT_CARDS\\)} cards'\\); print\\(f'DAILY_EVENTS: {len\\(DAILY_EVENTS\\)} events'\\); print\\(f'STORY_FLAGS: {len\\(STORY_FLAGS\\)} flags'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(mkdir -p openspec/changes/archive)",
+      "Bash(mv openspec/changes/narrative-engine \"openspec/changes/archive/2026-05-08-narrative-engine\")",
+      "Bash(python -c \"from server import app; print\\('OK'\\)\")",
+      "Bash(git remote *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)"
+    ]
+  }
+}

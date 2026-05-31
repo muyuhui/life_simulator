@@ -19,7 +19,6 @@ from config import (
     DAILY_EVENTS,
     DIFFICULTIES,
     EVENT_CARDS,
-    KEY_AGE_CHOICES,
     PERSONALITIES,
     PERSONALITY_TRAITS,
     STORY_FLAGS,
@@ -55,23 +54,6 @@ EDUCATIONS = {
     3: {"name": "博士", "baseIncome": 500},
 }
 
-SMALL_EVENTS = {
-    "happy": [
-        {"title": "买到喜欢的奶茶", "effect": {"happiness": 2}},
-        {"title": "加班费到账", "effect": {"money": 500}},
-        {"title": "宠物撒娇", "effect": {"happiness": 3}},
-        {"title": "捡到零钱", "effect": {"money": 100, "happiness": 1}},
-        {"title": "同事分享零食", "effect": {"happiness": 2}},
-    ],
-    "sad": [
-        {"title": "上班迟到", "effect": {"money": -200}},
-        {"title": "错过消息", "effect": {"happiness": -2}},
-        {"title": "健身拉伤", "effect": {"health": -5}},
-        {"title": "外卖洒漏", "effect": {"happiness": -3}},
-        {"title": "下雨没带伞", "effect": {"health": -2, "happiness": -1}},
-    ],
-}
-
 PROPERTIES = {
     "house": {
         "none": {"name": "无房", "cost": 0},
@@ -91,19 +73,6 @@ SPOUSE_TYPES = {
     "optimistic": {"name": "乐观型", "buff": "快乐衰减-10%"},
     "career": {"name": "事业型", "buff": "事业成长+2%"},
     "family": {"name": "顾家型", "buff": "健康衰减-10%"},
-}
-
-HOLIDAY_EVENTS = {
-    "birthday": {
-        "young": [
-            {"text": "朋友庆祝", "effect": {"happiness": 15, "money": -1000}},
-            {"text": "独自度过", "effect": {"happiness": 5}},
-        ],
-        "old": [
-            {"text": "子女祝寿", "effect": {"happiness": 30, "money": 20000}},
-            {"text": "回忆人生", "effect": {"happiness": 10}},
-        ],
-    },
 }
 
 
@@ -348,30 +317,6 @@ class GameState:
         self.add_timeline(f"🌟 {event['title']}")
         return {"type": "turning", "title": event["title"], "desc": event.get("desc", ""), "effects": effect}
 
-    def check_key_age_choice(self) -> dict[str, Any] | None:
-        age = self.data["age"]
-        if age not in KEY_AGE_CHOICES:
-            return None
-        key = f"age{age}"
-        if self.data.setdefault("keyChoices", {}).get(key):
-            return None
-        return {"type": "key_choice", "age": age, "choices": KEY_AGE_CHOICES[age]}
-
-    def handle_key_choice(self, choice_index: int) -> dict[str, Any]:
-        age = self.data["age"]
-        choices = KEY_AGE_CHOICES.get(age)
-        if not choices:
-            raise ValueError("当前年龄没有关键选择")
-        if choice_index < 0 or choice_index >= len(choices):
-            raise ValueError("选择不存在")
-
-        choice = choices[choice_index]
-        self.data.setdefault("keyChoices", {})[f"age{age}"] = choice["text"]
-        self.apply_effect(choice.get("effect"))
-        self._handle_special(choice.get("special", ""))
-        self.add_timeline(f"🎯 {choice['text']}")
-        return {"type": "choice_result", "title": choice["text"], "result": choice.get("outcome", "")}
-
     def _handle_special(self, special: str) -> None:
         special_buffs = self.data.setdefault("specialBuffs", {})
         talent = TALENTS[self.data["talent"]]
@@ -426,25 +371,6 @@ class GameState:
         self.apply_effect({"happiness": 15})
         self.add_timeline(f"💼 成为{self.data['job']}")
         return self.data["job"]
-
-    def check_small_event(self) -> dict[str, Any] | None:
-        if random.random() >= 0.15:
-            return None
-        events = SMALL_EVENTS["happy"] if random.random() < 0.6 else SMALL_EVENTS["sad"]
-        event = random.choice(events)
-        self.apply_effect(event["effect"])
-        self.add_timeline(event["title"])
-        return {"type": "small_event", "event": event}
-
-    def check_holiday_event(self) -> dict[str, Any] | None:
-        if random.random() >= 0.1:
-            return None
-        is_young = self.data["age"] < 30
-        events = HOLIDAY_EVENTS["birthday"]["young"] if is_young else HOLIDAY_EVENTS["birthday"]["old"]
-        event = random.choice(events)
-        self.apply_effect(event["effect"])
-        self.add_timeline(f"🎂 {event['text']}")
-        return {"type": "holiday", "event": event}
 
     def next_year(self) -> dict[str, Any]:
         if self.data["isGameOver"]:
